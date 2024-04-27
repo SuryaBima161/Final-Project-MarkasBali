@@ -22,7 +22,9 @@ func main() {
 
 	app := fiber.New()
 
-	controllers.RouteCars(app)
+	controllers.RouteBarang(app)
+	controllers.RoutePenjualan(app)
+	controllers.RoutDiskon(app)
 
 	err := app.Listen(":3000")
 	if err != nil {

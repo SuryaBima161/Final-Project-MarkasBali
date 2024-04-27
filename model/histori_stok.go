@@ -8,8 +8,8 @@ import (
 
 type HistoriStok struct {
 	ID         uint           `json:"id"`
-	ID_Barang  uint       `json:"id_barang"`
-	Amount     int            `json:"amount"`
+	ID_Barang  uint           `json:"id_barang"`
+	Amount     float64        `json:"amount"`
 	Status     string         `json:"status"`
 	Keterangan string         `json:"keterangan"`
 	CreatedAt  time.Time      `json:"created_at"`

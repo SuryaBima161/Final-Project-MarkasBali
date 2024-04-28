@@ -18,3 +18,18 @@ type ItemPenjualan struct {
 	UpdatedAt    time.Time      `json:"updated_at"`
 	DeletedAt    gorm.DeletedAt `gorm:"index" json:"deleted_at"`
 }
+
+func GetItemPenjualan(db *gorm.DB, id uint) (ItemPenjualan, error) {
+	res := ItemPenjualan{}
+
+	err := db.
+		Model(ItemPenjualan{}).Preload("Barang").Where("id = ?", id).
+		Find(&res).
+		Error
+
+	if err != nil {
+		return ItemPenjualan{}, err
+	}
+
+	return res, nil
+}

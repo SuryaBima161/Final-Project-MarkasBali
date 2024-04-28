@@ -14,6 +14,7 @@ type Penjualan struct {
 	Kode_Diskon   string          `gorm:"index" json:"kode_diskon"`
 	Diskon        float64         `gorm:"not null" json:"diskon"`
 	Total         float64         `gorm:"not null" json:"total"`
+	Kembalian     float64         `json:"kembalian"`
 	CreatedAt     time.Time       `json:"created_at"`
 	UpdatedAt     time.Time       `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt  `gorm:"index" json:"deleted_at"`
@@ -59,7 +60,7 @@ func (cr *Penjualan) DeletePenjualan(db *gorm.DB) error {
 	return db.Delete(cr).Error
 }
 
-func (cr *Penjualan) GetAllPenjualan(db *gorm.DB) ([]Penjualan, error) {
+func GetAllPenjualan(db *gorm.DB) ([]Penjualan, error) {
 	res := []Penjualan{}
 
 	err := db.
@@ -76,7 +77,7 @@ func (cr *Penjualan) GetAllPenjualan(db *gorm.DB) ([]Penjualan, error) {
 	return res, nil
 }
 
-func (cr *Penjualan) GetDetailPenjualan(db *gorm.DB, id uint) ([]Penjualan, error) {
+func GetDetailPenjualan(db *gorm.DB, id uint) ([]Penjualan, error) {
 	res := []Penjualan{}
 
 	err := db.
@@ -91,16 +92,32 @@ func (cr *Penjualan) GetDetailPenjualan(db *gorm.DB, id uint) ([]Penjualan, erro
 	return res, nil
 }
 
-func (cr *Penjualan) UpdateDiskonPenjualan(db *gorm.DB, id uint) error {
+func (p *Penjualan) UpdateDiskonPenjualan(db *gorm.DB, id uint, diskon float64) error {
+	if err := db.Model(&Penjualan{}).Where("id = ?", id).Update("diskon", diskon).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *Penjualan) UpdateKembalianPenjualan(db *gorm.DB, id uint, kembalian float64) error {
+	if err := db.Model(&Penjualan{}).Where("id = ?", id).Update("kembalian", kembalian).Error; err != nil {
+
+		return err
+	}
+	return nil
+}
+
+func GetDetailtemPenjualan(db *gorm.DB, id uint) ([]ItemPenjualan, error) {
+	res := []ItemPenjualan{}
+
 	err := db.
-		Model(Penjualan{}).
-		Where("id = ?", id).
-		Update("diskon", cr.Diskon).
+		Model(ItemPenjualan{}).Where("id_penjualan = ?", id).Preload("Barang").
+		Find(&res).
 		Error
 
 	if err != nil {
-		return err
+		return []ItemPenjualan{}, err
 	}
 
-	return nil
+	return res, nil
 }

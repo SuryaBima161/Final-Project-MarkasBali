@@ -33,6 +33,9 @@ func InsertPenjualan(kodebarang []payload.ItemPenjualanRequest, req payload.AddP
 		CreatedBy:    req.CreatedBy,
 	}
 
+	if penjualan.Total < penjualan.Subtotal {
+		return penjualan, errors.New("transaksi gagal: total pembayaran kurang dari subtotal")
+	}
 	if penjualan.Kode_Diskon != "" {
 		discount, err := GetDiskonByKodeDiskon(penjualan.Kode_Diskon)
 		if err != nil {
@@ -41,35 +44,30 @@ func InsertPenjualan(kodebarang []payload.ItemPenjualanRequest, req payload.AddP
 		if discount.ID != 0 {
 			if discount.Type == "FIXED" {
 				penjualan.Total -= discount.Amount
+				diskon := discount.Amount
+				penjualan.Diskon = diskon
+				if err := penjualan.UpdateDiskonPenjualan(config.Mysql.DB, penjualan.ID, diskon); err != nil {
+					return penjualan, fmt.Errorf("error updating penjualan: %v", err)
+				}
 			} else if discount.Type == "PERCENT" {
 				discountAmount := (discount.Amount / 100) * penjualan.Subtotal
 				penjualan.Total -= discountAmount
-			}
-			if err := discount.DeleteKodeDiskon(config.Mysql.DB, discount.ID); err != nil {
-				return penjualan, err
+				diskon := discount.Amount
+				penjualan.Diskon = diskon
+				if err := penjualan.UpdateDiskonPenjualan(config.Mysql.DB, penjualan.ID, diskon); err != nil {
+					return penjualan, fmt.Errorf("error updating penjualan: %v", err)
+				}
 			}
 		}
 	}
-
-	if penjualan.Total < penjualan.Subtotal {
-		return penjualan, errors.New("transaksi gagal: total pembayaran kurang dari subtotal")
-	}
-
-	// Hitung nilai diskon
-	diskon := penjualan.Subtotal - penjualan.Total
-	// Pastikan nilai diskon tidak negatif
-	if diskon < 0 {
-		diskon = 0
-	}
-	penjualan.Diskon = diskon
-
 	if err := penjualan.CreatePenjualan(config.Mysql.DB); err != nil {
 		return penjualan, fmt.Errorf("error creating penjualan: %v", err)
 	}
-	if err := penjualan.UpdateDiskonPenjualan(config.Mysql.DB, penjualan.ID); err != nil {
-		return penjualan, fmt.Errorf("error updating penjualan: %v", err)
+	penjualan.Kembalian = penjualan.Total - penjualan.Subtotal
+	newKembalian := penjualan.Kembalian
+	if err := penjualan.UpdateKembalianPenjualan(config.Mysql.DB, penjualan.ID, newKembalian); err != nil {
+		return penjualan, fmt.Errorf("error updateting kembalian: %v", err)
 	}
-
 	penjualan.Kode_Invoice = GenerateInvoice(penjualan.ID)
 	if err := penjualan.UpdateInvoicePenjualan(config.Mysql.DB, penjualan.ID); err != nil {
 		return penjualan, fmt.Errorf("error updating kode invoice: %v", err)
@@ -120,13 +118,64 @@ func InsertPenjualan(kodebarang []payload.ItemPenjualanRequest, req payload.AddP
 	return penjualan, nil
 }
 
-func GetAllPenjualan() ([]model.Penjualan, error) {
-	var penjualan model.Penjualan
-	return penjualan.GetAllPenjualan(config.Mysql.DB)
-}
-func GetDetailPenjualan(id uint) ([]model.Penjualan, error) {
-	penjualan := model.Penjualan{
-		ID: id,
+func GetAllPenjualan() (resp []payload.GetPenjualanRespone, err error) {
+	penjualan, err := model.GetAllPenjualan(config.Mysql.DB)
+	if err != nil {
+		return nil, err
 	}
-	return penjualan.GetDetailPenjualan(config.Mysql.DB, id)
+	for _, p := range penjualan {
+		resp = append(resp, payload.GetPenjualanRespone{
+			ID:           p.ID,
+			Kode_Invoice: p.Kode_Invoice,
+			Nama_Pembeli: p.Nama_Pembeli,
+			Subtotal:     p.Subtotal,
+			Kode_Diskon:  p.Kode_Diskon,
+			Diskon:       p.Diskon,
+			Total:        p.Total,
+			Created_at:   p.CreatedAt,
+			Updated_at:   p.UpdatedAt,
+			Deleted_at:   p.DeletedAt,
+			Created_By:   p.CreatedBy,
+		})
+	}
+	return resp, nil
+}
+
+func GetDetailPenjualan(id uint) (resp []payload.GetPenjualanDetailRespone, err error) {
+	penjualan, err := model.GetDetailPenjualan(config.Mysql.DB, id)
+	if err != nil {
+		return nil, err
+	}
+	dataPenjualan, err := model.GetDetailtemPenjualan(config.Mysql.DB, id)
+	if err != nil {
+		return nil, err
+	}
+	itemPenjualan := make([]payload.ItemPenjualanRespone, len(dataPenjualan))
+	for i, h := range dataPenjualan {
+		itemPenjualan[i] = payload.ItemPenjualanRespone{
+			Kode_Barang: h.Barang.Kode_Barang,
+			Jumlah:      h.Jumlah,
+			Subtotal:    h.Subtotal,
+			Created_At:  h.CreatedAt,
+			Updated_At:  h.UpdatedAt,
+			Deleted_at:  h.DeletedAt,
+		}
+	}
+	for _, p := range penjualan {
+		resp = append(resp, payload.GetPenjualanDetailRespone{
+			ID:             p.ID,
+			Kode_Invoice:   p.Kode_Invoice,
+			Nama_Pembeli:   p.Nama_Pembeli,
+			Subtotal:       p.Subtotal,
+			Kode_Diskon:    p.Kode_Diskon,
+			Diskon:         p.Diskon,
+			Total:          p.Total,
+			Created_at:     p.CreatedAt,
+			Updated_at:     p.UpdatedAt,
+			Deleted_at:     p.DeletedAt,
+			Created_By:     p.CreatedBy,
+			Item_Penjualan: itemPenjualan,
+		})
+	}
+	return resp, nil
 }

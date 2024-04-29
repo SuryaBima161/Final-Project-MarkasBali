@@ -41,7 +41,7 @@ func InsertPenjualanController(c *fiber.Ctx) error {
 	}
 
 	// Panggil fungsi InsertPenjualan dari utils dengan data yang telah disiapkan
-	data, err := utils.InsertPenjualan(req.Item_Penjualan, *req)
+	_, err = utils.InsertPenjualan(req.Item_Penjualan, *req)
 	if err != nil {
 		// Tangani kesalahan sesuai kebutuhan
 		fmt.Println("Error InsertPenjualan:", err)
@@ -51,7 +51,6 @@ func InsertPenjualanController(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(map[string]any{
-		"data":    data,
 		"message": "Success Insert Data",
 	})
 }
